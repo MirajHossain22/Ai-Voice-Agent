@@ -14,6 +14,22 @@ export function buildApp(config: AppConfig = loadConfig()): FastifyInstance {
   });
   const callEvents = new CallEventBus();
 
+  app.addContentTypeParser(
+    'application/x-www-form-urlencoded',
+    { parseAs: 'string' },
+    (_request, body, done) => done(null, body),
+  );
+  app.addHook('onSend', async (_request, reply, payload) => {
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('X-Frame-Options', 'DENY');
+    reply.header('Referrer-Policy', 'no-referrer');
+    reply.header(
+      'Permissions-Policy',
+      'camera=(), microphone=(), geolocation=()',
+    );
+    return payload;
+  });
+
   app.get('/health', async () => ({
     status: 'ok',
   }));

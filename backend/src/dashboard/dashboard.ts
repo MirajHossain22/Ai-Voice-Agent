@@ -1,9 +1,16 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import type { AppConfig } from '../config.js';
 import { CallEventBus, type CallEvent } from './call-events.js';
 import { DashboardService } from './dashboard-service.js';
+import {
+  allowDashboardRequest,
+  dashboardCookieHeader,
+  dashboardLogoutCookieHeader,
+  isDashboardTokenValid,
+  readDashboardCookie,
+} from './dashboard-security.js';
 
 const listQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(25),
@@ -24,8 +31,81 @@ export function registerDashboardRoutes(
   callEvents: CallEventBus,
 ): void {
   const service = new DashboardService(config);
+  const secureCookie = config.nodeEnv === 'production';
+  let activeStreams = 0;
+
+  app.post('/api/dashboard/login', async (request, reply) => {
+    if (!allowDashboardRequest(`login:${request.ip}`)) {
+      return reply.status(403).send({
+        error: 'Dashboard login unavailable',
+        statusCode: 403,
+      });
+    }
+
+    const body =
+      typeof request.body === 'string'
+        ? new URLSearchParams(request.body)
+        : new URLSearchParams();
+    const token = body.get('token');
+
+    if (!isDashboardTokenValid(token, config.dashboardToken)) {
+      return reply.status(401).send({
+        error: 'Invalid dashboard credentials',
+        statusCode: 401,
+      });
+    }
+
+    return reply
+      .header(
+        'Set-Cookie',
+        dashboardCookieHeader(config.dashboardToken, secureCookie),
+      )
+      .redirect(`${config.dashboardOrigin}/`);
+  });
+
+  app.post('/api/dashboard/logout', async (_request, reply) => {
+    return reply
+      .header('Set-Cookie', dashboardLogoutCookieHeader(secureCookie))
+      .redirect('/dashboard');
+  });
+
+  app.get('/dashboard', async (_request, reply) => {
+    return reply.type('text/html').send(`<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Dashboard sign in</title></head>
+<body><main><h1>Dashboard sign in</h1>
+<form action="/api/dashboard/login" method="post">
+<label for="token">Dashboard token</label>
+<input id="token" name="token" type="password" required>
+<button type="submit">Sign in</button>
+</form></main></body></html>`);
+  });
+
+  const authorize = (request: FastifyRequest, reply: FastifyReply): boolean => {
+    const origin = request.headers.origin;
+    if (origin && origin !== config.dashboardOrigin) {
+      reply.status(403).send({ error: 'Origin not allowed', statusCode: 403 });
+      return false;
+    }
+    if (
+      !isDashboardTokenValid(
+        readDashboardCookie(request.headers.cookie),
+        config.dashboardToken,
+      )
+    ) {
+      reply
+        .status(401)
+        .send({ error: 'Dashboard authentication required', statusCode: 401 });
+      return false;
+    }
+    if (!allowDashboardRequest(request.ip)) {
+      reply.status(429).send({ error: 'Too many requests', statusCode: 429 });
+      return false;
+    }
+    return true;
+  };
 
   app.get('/api/calls', async (request, reply) => {
+    if (!authorize(request, reply)) return;
     const parsed = listQuerySchema.safeParse(request.query);
 
     if (!parsed.success) {
@@ -39,6 +119,14 @@ export function registerDashboardRoutes(
   });
 
   app.get('/api/calls/stream', async (request, reply) => {
+    if (!authorize(request, reply)) return;
+    if (activeStreams >= 10) {
+      return reply.status(429).send({
+        error: 'Too many live dashboard connections',
+        statusCode: 429,
+      });
+    }
+    activeStreams += 1;
     reply.hijack();
     reply.raw.writeHead(200, {
       'Cache-Control': 'no-cache',
@@ -65,10 +153,12 @@ export function registerDashboardRoutes(
     request.raw.on('close', () => {
       clearInterval(keepAlive);
       unsubscribe();
+      activeStreams -= 1;
     });
   });
 
   app.get('/api/calls/:id', async (request, reply) => {
+    if (!authorize(request, reply)) return;
     const parsed = idParamsSchema.safeParse(request.params);
 
     if (!parsed.success) {

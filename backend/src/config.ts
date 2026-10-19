@@ -18,6 +18,8 @@ const environmentSchema = z.object({
     .string()
     .min(1)
     .default('This call may be recorded and processed by AI.'),
+  DASHBOARD_TOKEN: z.string().min(1),
+  DASHBOARD_ORIGIN: z.string().url().default('http://127.0.0.1:5173'),
   VAPI_WEBHOOK_TOKEN: z.string().min(1),
 });
 
@@ -27,6 +29,8 @@ export type AppConfig = Readonly<{
   nodeEnv: 'development' | 'test' | 'production';
   port: number;
   recordingNotice: string;
+  dashboardToken: string;
+  dashboardOrigin: string;
   vapiWebhookToken: string;
 }>;
 
@@ -48,6 +52,8 @@ export function loadConfig(): AppConfig {
     nodeEnv: result.data.NODE_ENV,
     port: result.data.PORT,
     recordingNotice: result.data.RECORDING_NOTICE,
+    dashboardToken: result.data.DASHBOARD_TOKEN,
+    dashboardOrigin: result.data.DASHBOARD_ORIGIN,
     vapiWebhookToken: result.data.VAPI_WEBHOOK_TOKEN,
   };
 }

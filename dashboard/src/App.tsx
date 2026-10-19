@@ -49,11 +49,18 @@ export function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [live, setLive] = useState(false);
+  const [authenticated, setAuthenticated] = useState(true);
 
   async function refreshCalls() {
     return fetchJson<{ calls: Call[] }>('/api/calls')
       .then((data) => setCalls(data.calls))
       .catch((requestError: unknown) => {
+        if (
+          requestError instanceof Error &&
+          requestError.message.includes('(401)')
+        ) {
+          setAuthenticated(false);
+        }
         setError(
           requestError instanceof Error
             ? requestError.message
@@ -63,6 +70,10 @@ export function App() {
   }
 
   useEffect(() => {
+    if (!authenticated) {
+      return;
+    }
+
     void refreshCalls().finally(() => setLoading(false));
 
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
@@ -95,7 +106,7 @@ export function App() {
       }
       source?.close();
     };
-  }, [selectedCall?.id]);
+  }, [authenticated, selectedCall?.id]);
 
   async function openCall(id: string) {
     setError(null);
@@ -113,103 +124,117 @@ export function App() {
 
   return (
     <main className="page">
-      <header className="header">
-        <div>
-          <p className="eyebrow">AI Voice Agent</p>
-          <h1>Call history</h1>
-        </div>
-        <span className="badge">{live ? 'Live' : 'Reconnecting'}</span>
-      </header>
-
-      {error && <p className="error">{error}</p>}
-
-      <section className="layout">
-        <div className="panel">
-          <h2>Recent calls</h2>
-          {loading ? (
-            <p className="muted">Loading calls...</p>
-          ) : calls.length === 0 ? (
-            <p className="muted">No calls have been recorded yet.</p>
-          ) : (
-            <div className="call-list">
-              {calls.map((call) => (
-                <button
-                  className={`call-row ${selectedCall?.id === call.id ? 'selected' : ''}`}
-                  key={call.id}
-                  onClick={() => void openCall(call.id)}
-                  type="button"
-                >
-                  <strong>{call.callerNumber}</strong>
-                  <span>{formatDate(call.startedAt)}</span>
-                  <span className="row-meta">
-                    {call.intent ?? 'unclassified'} · {call.status}
-                  </span>
-                </button>
-              ))}
+      {!authenticated && (
+        <section className="panel">
+          <h2>Dashboard sign in required</h2>
+          <p className="muted">
+            Open <a href="/dashboard">the dashboard sign-in page</a> to
+            continue.
+          </p>
+        </section>
+      )}
+      {authenticated && (
+        <>
+          <header className="header">
+            <div>
+              <p className="eyebrow">AI Voice Agent</p>
+              <h1>Call history</h1>
             </div>
-          )}
-        </div>
+            <span className="badge">{live ? 'Live' : 'Reconnecting'}</span>
+          </header>
 
-        <div className="panel detail">
-          {!selectedCall ? (
-            <p className="muted">Select a call to view its details.</p>
-          ) : (
-            <>
-              <div className="detail-heading">
-                <div>
-                  <p className="eyebrow">Call detail</p>
-                  <h2>{selectedCall.callerNumber}</h2>
-                </div>
-                <span className="badge">{selectedCall.status}</span>
-              </div>
-              <p className="muted">
-                {formatDate(selectedCall.startedAt)} ·{' '}
-                {selectedCall.intent ?? 'unclassified'}
-              </p>
+          {error && <p className="error">{error}</p>}
 
-              <h3>Transcript</h3>
-              {selectedCall.transcriptMessages.length === 0 ? (
-                <p className="muted">No transcript messages.</p>
+          <section className="layout">
+            <div className="panel">
+              <h2>Recent calls</h2>
+              {loading ? (
+                <p className="muted">Loading calls...</p>
+              ) : calls.length === 0 ? (
+                <p className="muted">No calls have been recorded yet.</p>
               ) : (
-                <div className="transcript">
-                  {selectedCall.transcriptMessages.map((message) => (
-                    <div className="message" key={message.id}>
-                      <strong>{message.role}</strong>
-                      <p>{message.text}</p>
+                <div className="call-list">
+                  {calls.map((call) => (
+                    <button
+                      className={`call-row ${selectedCall?.id === call.id ? 'selected' : ''}`}
+                      key={call.id}
+                      onClick={() => void openCall(call.id)}
+                      type="button"
+                    >
+                      <strong>{call.callerNumber}</strong>
+                      <span>{formatDate(call.startedAt)}</span>
+                      <span className="row-meta">
+                        {call.intent ?? 'unclassified'} · {call.status}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="panel detail">
+              {!selectedCall ? (
+                <p className="muted">Select a call to view its details.</p>
+              ) : (
+                <>
+                  <div className="detail-heading">
+                    <div>
+                      <p className="eyebrow">Call detail</p>
+                      <h2>{selectedCall.callerNumber}</h2>
                     </div>
-                  ))}
-                </div>
-              )}
+                    <span className="badge">{selectedCall.status}</span>
+                  </div>
+                  <p className="muted">
+                    {formatDate(selectedCall.startedAt)} ·{' '}
+                    {selectedCall.intent ?? 'unclassified'}
+                  </p>
 
-              <h3>Actions</h3>
-              {selectedCall.actions.length === 0 ? (
-                <p className="muted">No actions recorded.</p>
-              ) : (
-                <ul>
-                  {selectedCall.actions.map((action) => (
-                    <li key={action.id}>
-                      {action.type} · {action.status}
-                    </li>
-                  ))}
-                </ul>
-              )}
+                  <h3>Transcript</h3>
+                  {selectedCall.transcriptMessages.length === 0 ? (
+                    <p className="muted">No transcript messages.</p>
+                  ) : (
+                    <div className="transcript">
+                      {selectedCall.transcriptMessages.map((message) => (
+                        <div className="message" key={message.id}>
+                          <strong>{message.role}</strong>
+                          <p>{message.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
-              <h3>Appointments</h3>
-              {selectedCall.appointments.length === 0 ? (
-                <p className="muted">No appointments.</p>
-              ) : (
-                <ul>
-                  {selectedCall.appointments.map((appointment) => (
-                    <li key={appointment.id}>
-                      {formatDate(appointment.startsAt)} · {appointment.status}
-                    </li>
-                  ))}
-                </ul>
+                  <h3>Actions</h3>
+                  {selectedCall.actions.length === 0 ? (
+                    <p className="muted">No actions recorded.</p>
+                  ) : (
+                    <ul>
+                      {selectedCall.actions.map((action) => (
+                        <li key={action.id}>
+                          {action.type} · {action.status}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  <h3>Appointments</h3>
+                  {selectedCall.appointments.length === 0 ? (
+                    <p className="muted">No appointments.</p>
+                  ) : (
+                    <ul>
+                      {selectedCall.appointments.map((appointment) => (
+                        <li key={appointment.id}>
+                          {formatDate(appointment.startsAt)} ·{' '}
+                          {appointment.status}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
               )}
-            </>
-          )}
-        </div>
-      </section>
+            </div>
+          </section>
+        </>
+      )}
     </main>
   );
 }

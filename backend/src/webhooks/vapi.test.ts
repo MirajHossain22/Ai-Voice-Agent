@@ -9,6 +9,8 @@ const config: AppConfig = {
   nodeEnv: 'test',
   port: 3000,
   recordingNotice: 'Test recording notice',
+  dashboardToken: 'dashboard-token',
+  dashboardOrigin: 'http://127.0.0.1:5173',
   vapiWebhookToken: 'test-token',
 };
 
