@@ -1,6 +1,7 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 
 import { loadConfig, type AppConfig } from './config.js';
+import { registerDashboardRoutes } from './dashboard/dashboard.js';
 import { maskLogFields } from './logger.js';
 import { registerVapiWebhook } from './webhooks/vapi.js';
 
@@ -16,6 +17,7 @@ export function buildApp(config: AppConfig = loadConfig()): FastifyInstance {
   }));
 
   registerVapiWebhook(app, config);
+  registerDashboardRoutes(app, config);
 
   app.setNotFoundHandler((_request, reply) => {
     return reply.status(404).send({
