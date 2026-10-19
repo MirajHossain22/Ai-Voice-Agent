@@ -25,6 +25,34 @@ const idParamsSchema = z.object({
     ),
 });
 
+const dateRangeSchema = z.object({
+  start: z.string().datetime().optional(),
+  end: z.string().datetime().optional(),
+});
+
+function currentWeekRange(): { start: Date; end: Date } {
+  const now = new Date();
+  const start = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+  const day = start.getUTCDay();
+  start.setUTCDate(start.getUTCDate() - (day === 0 ? 6 : day - 1));
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 7);
+  return { start, end };
+}
+
+function parseRange(query: unknown): { start: Date; end: Date } | null {
+  const parsed = dateRangeSchema.safeParse(query);
+  if (!parsed.success) return null;
+  const defaults = currentWeekRange();
+  const start = parsed.data.start
+    ? new Date(parsed.data.start)
+    : defaults.start;
+  const end = parsed.data.end ? new Date(parsed.data.end) : defaults.end;
+  return start < end ? { start, end } : null;
+}
+
 export function registerDashboardRoutes(
   app: FastifyInstance,
   config: AppConfig,
@@ -116,6 +144,44 @@ export function registerDashboardRoutes(
     }
 
     return { calls: await service.listCalls(parsed.data.limit) };
+  });
+
+  app.get('/api/kpis', async (request, reply) => {
+    if (!authorize(request, reply)) return;
+    const range = parseRange(request.query);
+    if (!range) {
+      return reply
+        .status(400)
+        .send({ error: 'Invalid date range', statusCode: 400 });
+    }
+    return service.getAnalytics(range.start, range.end);
+  });
+
+  app.get('/api/calls/daily', async (request, reply) => {
+    if (!authorize(request, reply)) return;
+    const range = parseRange(request.query);
+    if (!range) {
+      return reply
+        .status(400)
+        .send({ error: 'Invalid date range', statusCode: 400 });
+    }
+    return { days: await service.getDailyCalls(range.start, range.end) };
+  });
+
+  app.get('/api/intents', async (request, reply) => {
+    if (!authorize(request, reply)) return;
+    const range = parseRange(request.query);
+    if (!range) {
+      return reply
+        .status(400)
+        .send({ error: 'Invalid date range', statusCode: 400 });
+    }
+    return { intents: await service.getIntents(range.start, range.end) };
+  });
+
+  app.get('/api/calls/latest-summary', async (request, reply) => {
+    if (!authorize(request, reply)) return;
+    return { summary: await service.getLatestSummary() };
   });
 
   app.get('/api/calls/stream', async (request, reply) => {

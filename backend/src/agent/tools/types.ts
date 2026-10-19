@@ -33,15 +33,29 @@ export type ToolRepository = {
   listAvailableSlots: (date: Date) => Promise<AvailabilitySlot[]>;
   findAvailableSlot: (startTime: Date) => Promise<AvailabilitySlot | null>;
   findCustomerByPhone: (phone: string) => Promise<CustomerRecord | null>;
+  findExternalCustomer?: (phone: string) => Promise<CustomerRecord | null>;
   createAppointment: (input: {
     callId: string;
     customerName: string;
     phone: string;
     slot: AvailabilitySlot;
   }) => Promise<AppointmentRecord>;
-  findAppointment: (
-    appointmentId: string,
-  ) => Promise<{ id: string; callId: string } | null>;
+  findAppointment: (appointmentId: string) => Promise<{
+    id: string;
+    callId: string;
+    customerName: string;
+    startsAt: Date;
+    endsAt: Date;
+  } | null>;
+  sendConfirmationEmail?: (input: {
+    email: string;
+    appointment: {
+      id: string;
+      customerName: string;
+      startsAt: Date;
+      endsAt: Date;
+    };
+  }) => Promise<void>;
   recordAction: (input: {
     callId: string;
     type: 'confirmation_sent' | 'transferred' | 'appointment_booked';

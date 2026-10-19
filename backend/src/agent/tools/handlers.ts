@@ -106,9 +106,15 @@ export function createAgentTools(
       }
 
       try {
+        const localCustomer = await repository.findCustomerByPhone(
+          parsed.data.phone,
+        );
+        if (localCustomer || !repository.findExternalCustomer) {
+          return { ok: true, data: localCustomer };
+        }
         return {
           ok: true,
-          data: await repository.findCustomerByPhone(parsed.data.phone),
+          data: await repository.findExternalCustomer(parsed.data.phone),
         };
       } catch {
         return failure(
@@ -135,12 +141,22 @@ export function createAgentTools(
         if (!appointment || appointment.callId !== context.callId) {
           return failure('APPOINTMENT_NOT_FOUND', 'appointment was not found');
         }
+        if (!repository.sendConfirmationEmail) {
+          return failure(
+            'CONFIRMATION_UNAVAILABLE',
+            'confirmation is temporarily unavailable',
+          );
+        }
+        await repository.sendConfirmationEmail({
+          email: parsed.data.email,
+          appointment,
+        });
 
         await repository.recordAction({
           callId: context.callId,
           type: 'confirmation_sent',
           status: 'success',
-          payloadJson: { appointmentId: appointment.id, mocked: 'true' },
+          payloadJson: { appointmentId: appointment.id },
         });
 
         return { ok: true, data: { sent: true } };

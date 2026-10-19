@@ -11,6 +11,7 @@ function repository(overrides: Partial<ToolRepository> = {}): ToolRepository {
     findCustomerByPhone: vi.fn().mockResolvedValue(null),
     createAppointment: vi.fn(),
     findAppointment: vi.fn().mockResolvedValue(null),
+    sendConfirmationEmail: vi.fn().mockResolvedValue(undefined),
     recordAction: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
@@ -154,12 +155,18 @@ describe('agent tools', () => {
       findAppointment: vi.fn().mockResolvedValue({
         id: appointmentId,
         callId: context.callId,
+        customerName: 'Caller',
+        startsAt: new Date('2026-02-01T15:00:00.000Z'),
+        endsAt: new Date('2026-02-01T15:30:00.000Z'),
       }),
     });
     const tools = createAgentTools(repo, context);
 
     await expect(
-      tools.send_confirmation({ appointment_id: appointmentId }),
+      tools.send_confirmation({
+        appointment_id: appointmentId,
+        email: 'caller@example.com',
+      }),
     ).resolves.toEqual({ ok: true, data: { sent: true } });
     await expect(
       tools.transfer_to_human({ reason: 'Caller requested a specialist' }),
