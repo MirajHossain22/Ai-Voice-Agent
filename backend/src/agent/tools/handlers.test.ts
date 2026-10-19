@@ -5,6 +5,7 @@ import type { ToolRepository } from './types.js';
 
 function repository(overrides: Partial<ToolRepository> = {}): ToolRepository {
   return {
+    findLocalCallId: vi.fn().mockResolvedValue(context.callId),
     listAvailableSlots: vi.fn().mockResolvedValue([]),
     findAvailableSlot: vi.fn().mockResolvedValue(null),
     findCustomerByPhone: vi.fn().mockResolvedValue(null),

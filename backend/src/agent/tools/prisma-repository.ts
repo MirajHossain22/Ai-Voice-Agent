@@ -16,6 +16,14 @@ export function createPrismaToolRepository(
   const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
   return {
+    async findLocalCallId(providerCallId: string): Promise<string | null> {
+      const call = await prisma.call.findUnique({
+        where: { providerCallId },
+        select: { id: true },
+      });
+      return call?.id ?? null;
+    },
+
     async listAvailableSlots(date: Date): Promise<AvailabilitySlot[]> {
       const nextDate = new Date(date);
       nextDate.setUTCDate(nextDate.getUTCDate() + 1);

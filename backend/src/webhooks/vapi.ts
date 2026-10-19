@@ -44,9 +44,9 @@ export function registerVapiWebhook(
       });
     }
 
-    await service.handle(parsed.data.message);
+    const result = await service.handle(parsed.data.message);
 
-    return reply.status(200).send({ received: true });
+    return reply.status(200).send(result ?? { received: true });
   });
 
   app.addHook('onClose', async () => {

@@ -20,6 +20,19 @@ const messageSchema = z
     role: z.string().optional(),
     transcriptType: z.string().optional(),
     transcript: z.string().optional(),
+    endedReason: z.string().optional(),
+    toolCallList: z
+      .array(
+        z.object({
+          id: z.string().min(1),
+          type: z.literal('function'),
+          function: z.object({
+            name: z.string().min(1),
+            arguments: z.unknown(),
+          }),
+        }),
+      )
+      .optional(),
     artifact: z
       .object({
         transcript: z.string().optional(),

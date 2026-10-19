@@ -6,3 +6,6 @@ export {
   createPrismaToolRepository,
 } from './agent/tools/index.js';
 export { loadSystemPrompt } from './agent/prompt.js';
+export { dispatchToolCalls } from './agent/tool-call-dispatcher.js';
+export { classifyIntent } from './post-call/intent.js';
+export { processPostCall } from './post-call/processor.js';

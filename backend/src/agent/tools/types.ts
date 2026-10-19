@@ -29,6 +29,7 @@ export type AppointmentRecord = {
 };
 
 export type ToolRepository = {
+  findLocalCallId: (providerCallId: string) => Promise<string | null>;
   listAvailableSlots: (date: Date) => Promise<AvailabilitySlot[]>;
   findAvailableSlot: (startTime: Date) => Promise<AvailabilitySlot | null>;
   findCustomerByPhone: (phone: string) => Promise<CustomerRecord | null>;
