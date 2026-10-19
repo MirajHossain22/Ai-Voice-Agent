@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ai_voice_agent
+      POSTGRES_USER: ai_voice_agent
+      POSTGRES_PASSWORD: ai_voice_agent
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ai_voice_agent -d ai_voice_agent']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:

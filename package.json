@@ -1,0 +1,23 @@
+{
+  "name": "ai-voice-agent",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "dashboard"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces",
+    "db:generate": "npm run db:generate --workspace=@ai-voice-agent/backend",
+    "db:migrate": "npm run db:migrate --workspace=@ai-voice-agent/backend",
+    "db:seed": "npm run db:seed --workspace=@ai-voice-agent/backend",
+    "lint": "eslint .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "8.71.2",
+    "@typescript-eslint/parser": "8.71.2",
+    "eslint": "10.13.0",
+    "prettier": "3.9.10",
+    "typescript": "5.9.3"
+  }
+}

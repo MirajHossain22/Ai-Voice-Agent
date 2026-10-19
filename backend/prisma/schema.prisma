@@ -1,0 +1,121 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum CallStatus {
+  in_progress
+  resolved
+  transferred
+  abandoned
+  failed
+}
+
+enum CallIntent {
+  pricing_inquiry
+  book_demo
+  support_request
+  general_question
+  other
+}
+
+enum TranscriptRole {
+  agent
+  caller
+}
+
+enum ActionType {
+  information_provided
+  appointment_booked
+  confirmation_sent
+  transferred
+  other
+}
+
+enum ActionStatus {
+  success
+  failed
+}
+
+enum AppointmentStatus {
+  booked
+  cancelled
+}
+
+model Customer {
+  id           String        @id @default(uuid()) @db.Uuid
+  name         String
+  phone        String        @unique
+  createdAt    DateTime      @default(now()) @map("created_at")
+  calls        Call[]
+  appointments Appointment[]
+
+  @@map("customers")
+}
+
+model Call {
+  id                 String                @id @default(uuid()) @db.Uuid
+  providerCallId     String                @unique @map("provider_call_id")
+  customerId         String?               @map("customer_id") @db.Uuid
+  callerNumber       String                @map("caller_number")
+  status             CallStatus
+  intent             CallIntent?
+  language           String
+  startedAt          DateTime              @map("started_at")
+  endedAt            DateTime?             @map("ended_at")
+  durationSec        Int?                  @map("duration_sec")
+  summary            String?
+  createdAt          DateTime              @default(now()) @map("created_at")
+  customer           Customer?             @relation(fields: [customerId], references: [id])
+  transcriptMessages TranscriptMessage[]
+  actions            Action[]
+  appointments       Appointment[]
+
+  @@index([status])
+  @@index([startedAt])
+  @@map("calls")
+}
+
+model TranscriptMessage {
+  id        String         @id @default(uuid()) @db.Uuid
+  callId    String         @map("call_id") @db.Uuid
+  role      TranscriptRole
+  text      String
+  timestamp DateTime       @default(now())
+  call      Call           @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  @@index([callId, timestamp])
+  @@map("transcript_messages")
+}
+
+model Action {
+  id         String       @id @default(uuid()) @db.Uuid
+  callId     String       @map("call_id") @db.Uuid
+  type       ActionType
+  status     ActionStatus
+  payloadJson Json?       @map("payload_json")
+  createdAt  DateTime     @default(now()) @map("created_at")
+  call       Call         @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  @@index([callId, createdAt])
+  @@map("actions")
+}
+
+model Appointment {
+  id         String            @id @default(uuid()) @db.Uuid
+  callId     String            @map("call_id") @db.Uuid
+  customerId String?           @map("customer_id") @db.Uuid
+  startsAt   DateTime          @map("starts_at")
+  endsAt     DateTime          @map("ends_at")
+  status     AppointmentStatus
+  createdAt  DateTime          @default(now()) @map("created_at")
+  call       Call              @relation(fields: [callId], references: [id], onDelete: Cascade)
+  customer   Customer?         @relation(fields: [customerId], references: [id])
+
+  @@index([startsAt])
+  @@index([status])
+  @@map("appointments")
+}
