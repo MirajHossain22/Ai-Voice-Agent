@@ -1,4 +1,7 @@
 import Fastify, { type FastifyInstance } from 'fastify';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '@prisma/client';
+import { Pool } from 'pg';
 
 import { loadConfig, type AppConfig } from './config.js';
 import { CallEventBus } from './dashboard/call-events.js';
@@ -13,6 +16,10 @@ export function buildApp(config: AppConfig = loadConfig()): FastifyInstance {
     },
   });
   const callEvents = new CallEventBus();
+  const readinessPool = new Pool({ connectionString: config.databaseUrl });
+  const readinessPrisma = new PrismaClient({
+    adapter: new PrismaPg(readinessPool),
+  });
 
   app.addContentTypeParser(
     'application/x-www-form-urlencoded',
@@ -34,8 +41,26 @@ export function buildApp(config: AppConfig = loadConfig()): FastifyInstance {
     status: 'ok',
   }));
 
+  app.get('/ready', async (_request, reply) => {
+    try {
+      await readinessPrisma.$queryRaw`SELECT 1`;
+      return { status: 'ready' };
+    } catch (error: unknown) {
+      app.log.error({ err: error }, 'Readiness check failed');
+      return reply.status(503).send({
+        error: 'Service unavailable',
+        statusCode: 503,
+      });
+    }
+  });
+
   registerVapiWebhook(app, config, callEvents);
   registerDashboardRoutes(app, config, callEvents);
+
+  app.addHook('onClose', async () => {
+    await readinessPrisma.$disconnect();
+    await readinessPool.end();
+  });
 
   app.setNotFoundHandler((_request, reply) => {
     return reply.status(404).send({

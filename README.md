@@ -26,14 +26,44 @@ npm run lint
 npm run format:check
 ```
 
-For local database work, copy `.env.example` to `.env`, start PostgreSQL with
-`docker compose up -d postgres`, then run:
+Copy `.env.example` to `.env` at the repository root. Set
+`DATABASE_URL`, `VAPI_WEBHOOK_TOKEN`, and `DASHBOARD_TOKEN`; keep `.env`
+untracked. `DASHBOARD_ORIGIN` should match the browser origin used to access
+the dashboard.
+
+For local database work, start PostgreSQL with `docker compose up -d postgres`,
+then run:
 
 ```text
 npm run db:migrate
 npm run db:seed
 ```
 
-The project currently contains the Phase 2 database foundation. Backend routes,
-voice integration, and dashboard features are delivered in later approved
-phases.
+Start the development services separately:
+
+```text
+cd backend
+npm start
+
+cd ../dashboard
+npm run dev
+```
+
+Open `http://127.0.0.1:5173/dashboard` to sign in. The backend exposes:
+
+- `GET /health`: process-level liveness check; does not require the database.
+- `GET /ready`: database-backed readiness check; returns `503` when the
+  database is unavailable.
+
+Build and run the backend for production:
+
+```text
+npm run build --workspace=@ai-voice-agent/backend
+npm run start:prod --workspace=@ai-voice-agent/backend
+```
+
+Build the dashboard with:
+
+```text
+npm run build --workspace=@ai-voice-agent/dashboard
+```
