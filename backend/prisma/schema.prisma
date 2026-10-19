@@ -45,6 +45,11 @@ enum AppointmentStatus {
   cancelled
 }
 
+enum AvailabilitySlotStatus {
+  available
+  booked
+}
+
 model Customer {
   id           String        @id @default(uuid()) @db.Uuid
   name         String
@@ -111,11 +116,26 @@ model Appointment {
   startsAt   DateTime          @map("starts_at")
   endsAt     DateTime          @map("ends_at")
   status     AppointmentStatus
+  slotId     String?           @unique @map("slot_id") @db.Uuid
   createdAt  DateTime          @default(now()) @map("created_at")
   call       Call              @relation(fields: [callId], references: [id], onDelete: Cascade)
   customer   Customer?         @relation(fields: [customerId], references: [id])
+  slot       AvailabilitySlot? @relation(fields: [slotId], references: [id])
 
   @@index([startsAt])
   @@index([status])
   @@map("appointments")
+}
+
+model AvailabilitySlot {
+  id           String                 @id @default(uuid()) @db.Uuid
+  startsAt     DateTime               @map("starts_at")
+  endsAt       DateTime               @map("ends_at")
+  status       AvailabilitySlotStatus
+  createdAt    DateTime               @default(now()) @map("created_at")
+  appointment  Appointment?
+
+  @@unique([startsAt])
+  @@index([startsAt, status])
+  @@map("availability_slots")
 }

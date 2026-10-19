@@ -2,8 +2,11 @@
   "name": "@ai-voice-agent/backend",
   "private": true,
   "version": "0.1.0",
+  "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "start": "tsx src/server.ts",
+    "test": "vitest run",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed"
@@ -11,11 +14,15 @@
   "dependencies": {
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "7.10.1",
-    "pg": "8.23.1"
+    "dotenv": "18.0.8",
+    "fastify": "5.12.7",
+    "pg": "8.23.1",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@types/pg": "8.23.1",
     "prisma": "7.10.1",
-    "tsx": "4.23.15"
+    "tsx": "4.23.15",
+    "vitest": "5.0.5"
   }
 }
