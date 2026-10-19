@@ -9,7 +9,7 @@
     "start": "tsx src/server.ts",
     "start:prod": "node dist/server.js",
     "test": "vitest run",
-    "db:generate": "prisma generate",
+    "db:generate": "prisma generate --config prisma.generate.config.ts",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed"
   },
