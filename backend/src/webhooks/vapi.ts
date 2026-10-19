@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { timingSafeEqual } from 'node:crypto';
 
 import type { AppConfig } from '../config.js';
+import { CallEventBus } from '../dashboard/call-events.js';
 import { VapiWebhookService } from './vapi-service.js';
 import { vapiWebhookSchema } from './vapi-schemas.js';
 
@@ -24,8 +25,9 @@ function isAuthorized(request: FastifyRequest, expectedToken: string): boolean {
 export function registerVapiWebhook(
   app: FastifyInstance,
   config: AppConfig,
+  callEvents: CallEventBus,
 ): void {
-  const service = new VapiWebhookService(config);
+  const service = new VapiWebhookService(config, callEvents);
 
   app.post('/webhooks/vapi', async (request, reply) => {
     if (!isAuthorized(request, config.vapiWebhookToken)) {

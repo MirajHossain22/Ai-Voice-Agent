@@ -16,6 +16,7 @@ export const lookupCustomerSchema = z.object({
 
 export const sendConfirmationSchema = z.object({
   appointment_id: z.string().uuid(),
+  email: z.string().email(),
 });
 
 export const transferToHumanSchema = z.object({
