@@ -15,10 +15,31 @@ const prisma = new PrismaClient({ adapter });
 async function main(): Promise<void> {
   await prisma.$transaction(async (transaction) => {
     await transaction.appointment.deleteMany();
+    await transaction.availabilitySlot.deleteMany();
     await transaction.action.deleteMany();
     await transaction.transcriptMessage.deleteMany();
     await transaction.call.deleteMany();
     await transaction.customer.deleteMany();
+
+    const today = new Date();
+    const openSlots = Array.from({ length: 3 }, (_, index) => {
+      const startsAt = new Date(today);
+      startsAt.setUTCHours(15, 0, 0, 0);
+      startsAt.setUTCDate(startsAt.getUTCDate() + index + 1);
+
+      const endsAt = new Date(startsAt);
+      endsAt.setUTCMinutes(30);
+
+      return { startsAt, endsAt };
+    });
+
+    await transaction.availabilitySlot.createMany({
+      data: openSlots.map(({ startsAt, endsAt }) => ({
+        startsAt,
+        endsAt,
+        status: 'available' as const,
+      })),
+    });
 
     const customer = await transaction.customer.create({
       data: {
@@ -70,13 +91,23 @@ async function main(): Promise<void> {
       },
     });
 
+    const slot = await transaction.availabilitySlot.create({
+      data: {
+        id: '00000000-0000-0000-0000-000000000003',
+        startsAt: new Date('2026-01-20T15:00:00.000Z'),
+        endsAt: new Date('2026-01-20T15:30:00.000Z'),
+        status: 'booked',
+      },
+    });
+
     await transaction.appointment.create({
       data: {
         callId: call.id,
         customerId: customer.id,
-        startsAt: new Date('2026-01-20T15:00:00.000Z'),
-        endsAt: new Date('2026-01-20T15:30:00.000Z'),
+        startsAt: slot.startsAt,
+        endsAt: slot.endsAt,
         status: 'booked',
+        slotId: slot.id,
       },
     });
   });

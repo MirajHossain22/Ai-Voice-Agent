@@ -14,6 +14,10 @@ const environmentSchema = z.object({
     .enum(['development', 'test', 'production'])
     .default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
+  RECORDING_NOTICE: z
+    .string()
+    .min(1)
+    .default('This call may be recorded and processed by AI.'),
   VAPI_WEBHOOK_TOKEN: z.string().min(1),
 });
 
@@ -22,6 +26,7 @@ export type AppConfig = Readonly<{
   host: string;
   nodeEnv: 'development' | 'test' | 'production';
   port: number;
+  recordingNotice: string;
   vapiWebhookToken: string;
 }>;
 
@@ -42,6 +47,7 @@ export function loadConfig(): AppConfig {
     host: result.data.HOST,
     nodeEnv: result.data.NODE_ENV,
     port: result.data.PORT,
+    recordingNotice: result.data.RECORDING_NOTICE,
     vapiWebhookToken: result.data.VAPI_WEBHOOK_TOKEN,
   };
 }
