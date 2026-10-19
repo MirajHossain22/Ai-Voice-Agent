@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
 import type { AppConfig } from '../config.js';
+import { CallEventBus, type CallEvent } from './call-events.js';
 import { DashboardService } from './dashboard-service.js';
 
 const listQuerySchema = z.object({
@@ -20,6 +21,7 @@ const idParamsSchema = z.object({
 export function registerDashboardRoutes(
   app: FastifyInstance,
   config: AppConfig,
+  callEvents: CallEventBus,
 ): void {
   const service = new DashboardService(config);
 
@@ -34,6 +36,36 @@ export function registerDashboardRoutes(
     }
 
     return { calls: await service.listCalls(parsed.data.limit) };
+  });
+
+  app.get('/api/calls/stream', async (request, reply) => {
+    reply.hijack();
+    reply.raw.writeHead(200, {
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+      'Content-Type': 'text/event-stream',
+      'X-Accel-Buffering': 'no',
+    });
+
+    const send = (event: CallEvent) => {
+      reply.raw.write(
+        `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`,
+      );
+    };
+    const unsubscribe = callEvents.subscribe(send);
+    const keepAlive = setInterval(() => {
+      reply.raw.write(': keep-alive\n\n');
+    }, 20_000);
+
+    send({
+      type: 'connected',
+      timestamp: new Date().toISOString(),
+    });
+
+    request.raw.on('close', () => {
+      clearInterval(keepAlive);
+      unsubscribe();
+    });
   });
 
   app.get('/api/calls/:id', async (request, reply) => {

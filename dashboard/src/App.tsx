@@ -48,9 +48,10 @@ export function App() {
   const [selectedCall, setSelectedCall] = useState<CallDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [live, setLive] = useState(false);
 
-  useEffect(() => {
-    fetchJson<{ calls: Call[] }>('/api/calls')
+  async function refreshCalls() {
+    return fetchJson<{ calls: Call[] }>('/api/calls')
       .then((data) => setCalls(data.calls))
       .catch((requestError: unknown) => {
         setError(
@@ -58,9 +59,43 @@ export function App() {
             ? requestError.message
             : 'Unable to load calls',
         );
-      })
-      .finally(() => setLoading(false));
-  }, []);
+      });
+  }
+
+  useEffect(() => {
+    void refreshCalls().finally(() => setLoading(false));
+
+    let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+    let source: EventSource | undefined;
+
+    const connect = () => {
+      source = new EventSource('/api/calls/stream');
+      source.onopen = () => setLive(true);
+      source.onerror = () => {
+        setLive(false);
+        source?.close();
+        reconnectTimer = setTimeout(connect, 2_000);
+      };
+      source.addEventListener('call.updated', (event) => {
+        const update = JSON.parse((event as MessageEvent).data) as {
+          callId: string;
+        };
+        void refreshCalls();
+        if (selectedCall?.id === update.callId) {
+          void openCall(update.callId);
+        }
+      });
+    };
+
+    connect();
+
+    return () => {
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+      }
+      source?.close();
+    };
+  }, [selectedCall?.id]);
 
   async function openCall(id: string) {
     setError(null);
@@ -83,7 +118,7 @@ export function App() {
           <p className="eyebrow">AI Voice Agent</p>
           <h1>Call history</h1>
         </div>
-        <span className="badge">Read-only</span>
+        <span className="badge">{live ? 'Live' : 'Reconnecting'}</span>
       </header>
 
       {error && <p className="error">{error}</p>}

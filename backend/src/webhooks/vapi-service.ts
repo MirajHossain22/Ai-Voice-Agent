@@ -5,6 +5,7 @@ import { Pool } from 'pg';
 import { dispatchToolCalls } from '../agent/tool-call-dispatcher.js';
 import { createPrismaToolRepository } from '../agent/tools/prisma-repository.js';
 import type { AppConfig } from '../config.js';
+import { CallEventBus } from '../dashboard/call-events.js';
 import { processPostCall } from '../post-call/processor.js';
 import type { VapiWebhook } from './vapi-schemas.js';
 
@@ -37,7 +38,10 @@ export class VapiWebhookService {
     typeof createPrismaToolRepository
   >;
 
-  public constructor(config: AppConfig) {
+  public constructor(
+    config: AppConfig,
+    private readonly callEvents: CallEventBus,
+  ) {
     this.pool = new Pool({ connectionString: config.databaseUrl });
     this.prisma = new PrismaClient({
       adapter: new PrismaPg(this.pool),
@@ -76,11 +80,18 @@ export class VapiWebhookService {
       return undefined;
     }
 
-    return dispatchToolCalls(
+    const result = await dispatchToolCalls(
       this.toolRepository,
       message.call.id,
       message.toolCallList,
     );
+    const callId = await this.toolRepository.findLocalCallId(message.call.id);
+
+    if (callId) {
+      this.callEvents.publishCallUpdate(callId, 'action');
+    }
+
+    return result;
   }
 
   private async upsertCall(message: VapiMessage) {
@@ -108,6 +119,7 @@ export class VapiWebhookService {
 
   private async handleStatusUpdate(message: VapiMessage): Promise<void> {
     const call = await this.upsertCall(message);
+    this.callEvents.publishCallUpdate(call.id, 'status');
 
     if (message.status === 'ended') {
       await this.prisma.call.update({
@@ -117,6 +129,7 @@ export class VapiWebhookService {
           endedAt: new Date(),
         },
       });
+      this.callEvents.publishCallUpdate(call.id, 'status');
     }
   }
 
@@ -148,6 +161,7 @@ export class VapiWebhookService {
           text: message.transcript,
         },
       });
+      this.callEvents.publishCallUpdate(call.id, 'transcript');
     }
   }
 
@@ -162,6 +176,7 @@ export class VapiWebhookService {
         endedAt: new Date(),
       },
     });
+    this.callEvents.publishCallUpdate(call.id, 'status');
 
     for (const artifactMessage of artifactMessages) {
       if (!artifactMessage || typeof artifactMessage !== 'object') {
@@ -197,9 +212,11 @@ export class VapiWebhookService {
             text,
           },
         });
+        this.callEvents.publishCallUpdate(call.id, 'transcript');
       }
     }
 
     await processPostCall(this.prisma, call.id);
+    this.callEvents.publishCallUpdate(call.id, 'intent');
   }
 }
