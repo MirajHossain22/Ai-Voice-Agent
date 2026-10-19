@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 
 import { loadConfig, type AppConfig } from './config.js';
 import { maskLogFields } from './logger.js';
+import { registerVapiWebhook } from './webhooks/vapi.js';
 
 export function buildApp(config: AppConfig = loadConfig()): FastifyInstance {
   const app = Fastify({
@@ -13,6 +14,8 @@ export function buildApp(config: AppConfig = loadConfig()): FastifyInstance {
   app.get('/health', async () => ({
     status: 'ok',
   }));
+
+  registerVapiWebhook(app, config);
 
   app.setNotFoundHandler((_request, reply) => {
     return reply.status(404).send({

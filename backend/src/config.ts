@@ -14,6 +14,7 @@ const environmentSchema = z.object({
     .enum(['development', 'test', 'production'])
     .default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
+  VAPI_WEBHOOK_TOKEN: z.string().min(1),
 });
 
 export type AppConfig = Readonly<{
@@ -21,6 +22,7 @@ export type AppConfig = Readonly<{
   host: string;
   nodeEnv: 'development' | 'test' | 'production';
   port: number;
+  vapiWebhookToken: string;
 }>;
 
 export function loadConfig(): AppConfig {
@@ -40,5 +42,6 @@ export function loadConfig(): AppConfig {
     host: result.data.HOST,
     nodeEnv: result.data.NODE_ENV,
     port: result.data.PORT,
+    vapiWebhookToken: result.data.VAPI_WEBHOOK_TOKEN,
   };
 }
