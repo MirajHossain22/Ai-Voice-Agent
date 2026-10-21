@@ -9,8 +9,9 @@
     "start": "tsx src/server.ts",
     "start:prod": "node dist/server.js",
     "test": "vitest run",
-    "db:generate": "prisma generate",
+    "db:generate": "prisma generate --config prisma.generate.config.ts",
     "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed"
   },
   "dependencies": {
@@ -24,6 +25,7 @@
   "devDependencies": {
     "@types/pg": "8.23.1",
     "prisma": "7.10.1",
+    "typescript": "5.9.3",
     "tsx": "4.23.15",
     "vitest": "5.0.5"
   }

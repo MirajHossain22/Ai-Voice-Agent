@@ -8,8 +8,10 @@
   "scripts": {
     "typecheck": "npm run typecheck --workspaces",
     "build": "npm run build --workspaces",
+    "test": "npm run test --workspace=@ai-voice-agent/backend",
     "db:generate": "npm run db:generate --workspace=@ai-voice-agent/backend",
     "db:migrate": "npm run db:migrate --workspace=@ai-voice-agent/backend",
+    "db:deploy": "npm run db:deploy --workspace=@ai-voice-agent/backend",
     "db:seed": "npm run db:seed --workspace=@ai-voice-agent/backend",
     "lint": "eslint .",
     "format:check": "prettier --check ."
