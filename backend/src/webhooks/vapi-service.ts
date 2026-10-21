@@ -78,7 +78,8 @@ export class VapiWebhookService {
   }
 
   private async handleToolCalls(message: VapiMessage) {
-    if (!message.call || !message.toolCallList) {
+    const toolCalls = message.toolCallList ?? message.toolCalls;
+    if (!message.call || !toolCalls) {
       return undefined;
     }
 
@@ -91,7 +92,7 @@ export class VapiWebhookService {
     const result = await dispatchToolCalls(
       this.toolRepository,
       message.call.id,
-      message.toolCallList,
+      toolCalls,
     );
     const callId = await this.toolRepository.findLocalCallId(message.call.id);
 
@@ -105,6 +106,8 @@ export class VapiWebhookService {
   private async upsertCall(message: VapiMessage) {
     const call = requireCall(message);
     const callerNumber = call.customer?.number || 'web-caller';
+    const startedAt =
+      call.createdAt !== undefined ? new Date(call.createdAt) : new Date();
 
     return this.prisma.call.upsert({
       where: { providerCallId: call.id },
@@ -113,7 +116,7 @@ export class VapiWebhookService {
         callerNumber,
         language: 'en',
         status: 'in_progress',
-        startedAt: new Date(call.createdAt),
+        startedAt,
       },
       update: {
         callerNumber,

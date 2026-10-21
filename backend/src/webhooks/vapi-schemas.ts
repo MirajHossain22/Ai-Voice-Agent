@@ -1,13 +1,23 @@
 import { z } from 'zod';
 
+const toolCallItemSchema = z.object({
+  id: z.string().min(1),
+  type: z.literal('function'),
+  function: z.object({
+    name: z.string().min(1),
+    arguments: z.unknown(),
+  }),
+});
+
 const callSchema = z
   .object({
     id: z.string().min(1),
-    createdAt: z.string().datetime(),
+    createdAt: z.union([z.string(), z.number()]).optional(),
     customer: z
       .object({
-        number: z.string().min(1),
+        number: z.string().min(1).optional(),
       })
+      .passthrough()
       .optional(),
   })
   .passthrough();
@@ -21,18 +31,8 @@ const messageSchema = z
     transcriptType: z.string().optional(),
     transcript: z.string().optional(),
     endedReason: z.string().optional(),
-    toolCallList: z
-      .array(
-        z.object({
-          id: z.string().min(1),
-          type: z.literal('function'),
-          function: z.object({
-            name: z.string().min(1),
-            arguments: z.unknown(),
-          }),
-        }),
-      )
-      .optional(),
+    toolCallList: z.array(toolCallItemSchema).optional(),
+    toolCalls: z.array(toolCallItemSchema).optional(),
     artifact: z
       .object({
         transcript: z.string().optional(),
