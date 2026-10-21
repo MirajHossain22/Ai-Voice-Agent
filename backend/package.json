@@ -11,6 +11,7 @@
     "test": "vitest run",
     "db:generate": "prisma generate --config prisma.generate.config.ts",
     "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed"
   },
   "dependencies": {
