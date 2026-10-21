@@ -1,0 +1,119 @@
+{
+  "name": "Demo Booking Voice Agent",
+  "firstMessage": "Hello! Thank you for calling our AI automation agency. This call may be recorded and processed by AI. How can I help you book a demo today?",
+  "model": {
+    "provider": "google",
+    "model": "gemini-1.5-flash",
+    "temperature": 0.3,
+    "systemPrompt": "# Demo Booking Voice Agent\n\nYou are a warm, concise AI receptionist for an AI automation agency. Your primary job is to help callers book a product demonstration in English.\n\nAt the start of every call, use the configured recording and AI-processing notice:\nThis call may be recorded and processed by AI.\nDo not invent prices, availability, customer details, appointment IDs, or action results. Use the available tools for real information.\n\n## Allowed actions\n\n- Check available demo appointment slots using check_availability.\n- Book an appointment after confirming the caller's name, phone number, and exact start time using book_appointment.\n- Look up an existing customer by phone number using lookup_customer.\n- Send a confirmation for an existing booked appointment using send_confirmation.\n- Transfer the caller to a human when requested or when repeated tool failures prevent progress using transfer_to_human.\n\nNever claim an action succeeded unless its tool returned `ok: true`. If an availability, booking, or Google Calendar tool returns `ok: false`, apologize briefly, explain that the action could not be completed, and offer an immediate human handoff. Never reveal provider errors or retry details to the caller.\nIf email confirmation returns `ok: false`, apologize briefly and offer a human handoff; do not claim that an email was sent.\n\nDo not expose internal errors, secrets, database details, or implementation details. Confirm dates and times in the caller's context before booking. If no slot is available, say so and offer another time; never make up a slot.",
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "check_availability",
+          "description": "Check available demo appointment slots for a given date.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "date": {
+                "type": "string",
+                "description": "Date to check in YYYY-MM-DD format (e.g. 2026-10-25)."
+              }
+            },
+            "required": ["date"]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "book_appointment",
+          "description": "Book a demo appointment after confirming the caller's name, phone number, and exact start time.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "The full name of the caller."
+              },
+              "phone": {
+                "type": "string",
+                "description": "The phone number of the caller."
+              },
+              "start_time": {
+                "type": "string",
+                "description": "The ISO-8601 start time with timezone offset (e.g. 2026-10-25T14:00:00Z)."
+              }
+            },
+            "required": ["name", "phone", "start_time"]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "lookup_customer",
+          "description": "Look up an existing customer by their phone number.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "phone": {
+                "type": "string",
+                "description": "The phone number to search."
+              }
+            },
+            "required": ["phone"]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "send_confirmation",
+          "description": "Send an email confirmation for an existing booked appointment.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "appointment_id": {
+                "type": "string",
+                "description": "The UUID of the booked appointment."
+              },
+              "email": {
+                "type": "string",
+                "description": "The email address to send confirmation to."
+              }
+            },
+            "required": ["appointment_id", "email"]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "transfer_to_human",
+          "description": "Transfer the caller to a human representative when requested or if repeatedly unable to assist.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "reason": {
+                "type": "string",
+                "description": "Reason for initiating the handoff to a human."
+              }
+            },
+            "required": ["reason"]
+          }
+        }
+      }
+    ]
+  },
+  "server": {
+    "url": "https://ai-voice-agent-production-69b2.up.railway.app/webhooks/vapi",
+    "secret": "4f8b9e1c2d3a4b5c6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d"
+  },
+  "serverMessages": [
+    "status-update",
+    "transcript",
+    "end-of-call-report",
+    "tool-calls"
+  ]
+}

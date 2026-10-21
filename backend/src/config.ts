@@ -54,6 +54,8 @@ const environmentSchema = z
       .max(30000)
       .default(5000),
     RESEND_RETRIES: z.coerce.number().int().min(0).max(5).default(2),
+    GEMINI_API_KEY: z.string().min(1).optional(),
+    GEMINI_MODEL: z.string().min(1).default('gemini-2.5-flash'),
   })
   .superRefine((value, context) => {
     if (
@@ -108,6 +110,10 @@ export type AppConfig = Readonly<{
     timeoutMs: number;
     retries: number;
   };
+  gemini?: {
+    apiKey: string;
+    model: string;
+  };
 }>;
 
 export function loadConfig(): AppConfig {
@@ -131,6 +137,14 @@ export function loadConfig(): AppConfig {
     dashboardToken: result.data.DASHBOARD_TOKEN,
     dashboardOrigin: result.data.DASHBOARD_ORIGIN,
     vapiWebhookToken: result.data.VAPI_WEBHOOK_TOKEN,
+    ...(result.data.GEMINI_API_KEY
+      ? {
+          gemini: {
+            apiKey: result.data.GEMINI_API_KEY,
+            model: result.data.GEMINI_MODEL,
+          },
+        }
+      : {}),
     ...(result.data.GOOGLE_CALENDAR_ENABLED
       ? {
           googleCalendar: {
