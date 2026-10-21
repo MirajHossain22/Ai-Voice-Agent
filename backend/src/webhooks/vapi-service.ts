@@ -82,6 +82,12 @@ export class VapiWebhookService {
       return undefined;
     }
 
+    try {
+      await this.upsertCall(message);
+    } catch {
+      // Continue if upsert fails so tool call execution is not blocked
+    }
+
     const result = await dispatchToolCalls(
       this.toolRepository,
       message.call.id,
@@ -98,11 +104,7 @@ export class VapiWebhookService {
 
   private async upsertCall(message: VapiMessage) {
     const call = requireCall(message);
-    const callerNumber = call.customer?.number;
-
-    if (!callerNumber) {
-      throw new Error('Vapi call is missing customer.number');
-    }
+    const callerNumber = call.customer?.number || 'web-caller';
 
     return this.prisma.call.upsert({
       where: { providerCallId: call.id },
