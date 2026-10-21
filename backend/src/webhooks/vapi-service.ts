@@ -37,11 +37,13 @@ export class VapiWebhookService {
   private readonly toolRepository: ReturnType<
     typeof createPrismaToolRepository
   >;
+  private readonly config: AppConfig;
 
   public constructor(
     config: AppConfig,
     private readonly callEvents: CallEventBus,
   ) {
+    this.config = config;
     this.pool = new Pool({ connectionString: config.databaseUrl });
     this.prisma = new PrismaClient({
       adapter: new PrismaPg(this.pool),
@@ -216,7 +218,7 @@ export class VapiWebhookService {
       }
     }
 
-    await processPostCall(this.prisma, call.id);
+    await processPostCall(this.prisma, call.id, this.config);
     this.callEvents.publishCallUpdate(call.id, 'intent');
   }
 }
