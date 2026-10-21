@@ -83,12 +83,19 @@ export function registerDashboardRoutes(
       });
     }
 
+    const redirectTarget =
+      request.headers.referer &&
+      (request.headers.referer.includes('localhost') ||
+        request.headers.referer.includes('127.0.0.1'))
+        ? 'http://localhost:5173/'
+        : `${config.dashboardOrigin}/`;
+
     return reply
       .header(
         'Set-Cookie',
         dashboardCookieHeader(config.dashboardToken, secureCookie),
       )
-      .redirect(`${config.dashboardOrigin}/`);
+      .redirect(redirectTarget);
   });
 
   app.post('/api/dashboard/logout', async (_request, reply) => {
@@ -110,7 +117,12 @@ export function registerDashboardRoutes(
 
   const authorize = (request: FastifyRequest, reply: FastifyReply): boolean => {
     const origin = request.headers.origin;
-    if (origin && origin !== config.dashboardOrigin) {
+    if (
+      origin &&
+      origin !== config.dashboardOrigin &&
+      origin !== 'http://localhost:5173' &&
+      origin !== 'http://127.0.0.1:5173'
+    ) {
       reply.status(403).send({ error: 'Origin not allowed', statusCode: 403 });
       return false;
     }
