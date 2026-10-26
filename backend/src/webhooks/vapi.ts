@@ -33,7 +33,6 @@ function isAuthorized(request: FastifyRequest, expectedToken: string): boolean {
       {
         receivedLength: receivedToken.length,
         expectedLength: configuredToken.length,
-        receivedPreview: token.slice(0, 10) + '...',
       },
       'Vapi token mismatch',
     );

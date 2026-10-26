@@ -13,6 +13,9 @@ const callSchema = z
   .object({
     id: z.string().min(1),
     createdAt: z.union([z.string(), z.number()]).optional(),
+    startedAt: z.union([z.string(), z.number()]).optional(),
+    endedAt: z.union([z.string(), z.number()]).optional(),
+    endedReason: z.string().optional(),
     customer: z
       .object({
         number: z.string().min(1).optional(),
@@ -22,10 +25,22 @@ const callSchema = z
   })
   .passthrough();
 
+const artifactMessageSchema = z
+  .object({
+    role: z.string().optional(),
+    message: z.string().optional(),
+    time: z.number().optional(),
+    secondsFromStart: z.number().nonnegative().optional(),
+  })
+  .passthrough();
+
 const messageSchema = z
   .object({
     type: z.string().min(1),
     call: callSchema.optional(),
+    timestamp: z.union([z.string(), z.number()]).optional(),
+    startedAt: z.union([z.string(), z.number()]).optional(),
+    endedAt: z.union([z.string(), z.number()]).optional(),
     status: z.string().optional(),
     role: z.string().optional(),
     transcriptType: z.string().optional(),
@@ -36,7 +51,7 @@ const messageSchema = z
     artifact: z
       .object({
         transcript: z.string().optional(),
-        messages: z.array(z.unknown()).optional(),
+        messages: z.array(artifactMessageSchema).optional(),
       })
       .passthrough()
       .optional(),

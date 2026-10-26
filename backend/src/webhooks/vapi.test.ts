@@ -34,6 +34,35 @@ describe('Vapi webhook', () => {
     expect(response.statusCode).toBe(401);
   });
 
+  it('rejects an incorrect bearer token', async () => {
+    const app = buildApp(config);
+    apps.push(app);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/webhooks/vapi',
+      headers: { authorization: 'Bearer incorrect-token' },
+      payload: { message: { type: 'ignored-event' } },
+    });
+
+    expect(response.statusCode).toBe(401);
+  });
+
+  it('accepts the documented legacy X-Vapi-Secret header', async () => {
+    const app = buildApp(config);
+    apps.push(app);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/webhooks/vapi',
+      headers: { 'x-vapi-secret': 'test-token' },
+      payload: { message: { type: 'ignored-event' } },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ received: true });
+  });
+
   it('rejects malformed webhook payloads', async () => {
     const app = buildApp(config);
     apps.push(app);

@@ -7,6 +7,12 @@ import { createPrismaToolRepository } from '../agent/tools/prisma-repository.js'
 import type { AppConfig } from '../config.js';
 import { CallEventBus } from '../dashboard/call-events.js';
 import { processPostCall } from '../post-call/processor.js';
+import {
+  calculateDurationSec,
+  findMissingArtifactMessages,
+  mapEndedReasonToStatus,
+  parseVapiDate,
+} from './vapi-lifecycle.js';
 import type { VapiWebhook } from './vapi-schemas.js';
 
 type VapiMessage = VapiWebhook['message'];
@@ -106,8 +112,11 @@ export class VapiWebhookService {
   private async upsertCall(message: VapiMessage) {
     const call = requireCall(message);
     const callerNumber = call.customer?.number || 'web-caller';
-    const startedAt =
-      call.createdAt !== undefined ? new Date(call.createdAt) : new Date();
+    const providerStartedAt =
+      parseVapiDate(message.startedAt) ??
+      parseVapiDate(call.startedAt) ??
+      parseVapiDate(call.createdAt);
+    const startedAt = providerStartedAt ?? new Date();
 
     return this.prisma.call.upsert({
       where: { providerCallId: call.id },
@@ -120,6 +129,7 @@ export class VapiWebhookService {
       },
       update: {
         callerNumber,
+        ...(providerStartedAt ? { startedAt: providerStartedAt } : {}),
       },
     });
   }
@@ -129,11 +139,17 @@ export class VapiWebhookService {
     this.callEvents.publishCallUpdate(call.id, 'status');
 
     if (message.status === 'ended') {
+      const endedAt =
+        parseVapiDate(message.endedAt) ??
+        parseVapiDate(message.call?.endedAt) ??
+        new Date();
+      const endedReason = message.endedReason ?? message.call?.endedReason;
       await this.prisma.call.update({
         where: { id: call.id },
         data: {
-          status: 'resolved',
-          endedAt: new Date(),
+          status: mapEndedReasonToStatus(endedReason),
+          endedAt,
+          durationSec: calculateDurationSec(call.startedAt, endedAt),
         },
       });
       this.callEvents.publishCallUpdate(call.id, 'status');
@@ -152,12 +168,11 @@ export class VapiWebhookService {
       return;
     }
 
+    const timestamp = parseVapiDate(message.timestamp);
     const existing = await this.prisma.transcriptMessage.findFirst({
-      where: {
-        callId: call.id,
-        role,
-        text: message.transcript,
-      },
+      where: timestamp
+        ? { callId: call.id, role, text: message.transcript, timestamp }
+        : { callId: call.id, role, text: message.transcript },
     });
 
     if (!existing) {
@@ -166,6 +181,7 @@ export class VapiWebhookService {
           callId: call.id,
           role,
           text: message.transcript,
+          ...(timestamp ? { timestamp } : {}),
         },
       });
       this.callEvents.publishCallUpdate(call.id, 'transcript');
@@ -174,56 +190,58 @@ export class VapiWebhookService {
 
   private async handleEndOfCallReport(message: VapiMessage): Promise<void> {
     const call = await this.upsertCall(message);
-    const artifactMessages = message.artifact?.messages ?? [];
+    const startedAt =
+      parseVapiDate(message.startedAt) ??
+      parseVapiDate(message.call?.startedAt) ??
+      call.startedAt;
+    const endedAt =
+      parseVapiDate(message.endedAt) ??
+      parseVapiDate(message.call?.endedAt) ??
+      new Date();
+    const endedReason = message.endedReason ?? message.call?.endedReason;
+    const artifactMessages = (message.artifact?.messages ?? [])
+      .map((artifactMessage) => {
+        const role = transcriptRole(artifactMessage.role);
+        return role && artifactMessage.message
+          ? { role, text: artifactMessage.message }
+          : null;
+      })
+      .filter((artifactMessage) => artifactMessage !== null);
 
     await this.prisma.call.update({
       where: { id: call.id },
       data: {
-        status: 'resolved',
-        endedAt: new Date(),
+        status: mapEndedReasonToStatus(endedReason),
+        startedAt,
+        endedAt,
+        durationSec: calculateDurationSec(startedAt, endedAt),
       },
     });
     this.callEvents.publishCallUpdate(call.id, 'status');
 
-    for (const artifactMessage of artifactMessages) {
-      if (!artifactMessage || typeof artifactMessage !== 'object') {
-        continue;
-      }
+    const storedMessages = await this.prisma.transcriptMessage.findMany({
+      where: { callId: call.id },
+      select: { role: true, text: true },
+    });
+    const missingMessages = findMissingArtifactMessages(
+      storedMessages,
+      artifactMessages,
+    );
 
-      const messageRecord = artifactMessage as Record<string, unknown>;
-      const role = transcriptRole(
-        typeof messageRecord.role === 'string' ? messageRecord.role : undefined,
-      );
-      const text =
-        typeof messageRecord.message === 'string'
-          ? messageRecord.message
-          : undefined;
-
-      if (!role || !text) {
-        continue;
-      }
-
-      const existing = await this.prisma.transcriptMessage.findFirst({
-        where: {
+    if (missingMessages.length > 0) {
+      await this.prisma.transcriptMessage.createMany({
+        data: missingMessages.map(({ role, text }) => ({
           callId: call.id,
           role,
           text,
-        },
+        })),
       });
-
-      if (!existing) {
-        await this.prisma.transcriptMessage.create({
-          data: {
-            callId: call.id,
-            role,
-            text,
-          },
-        });
-        this.callEvents.publishCallUpdate(call.id, 'transcript');
-      }
+      this.callEvents.publishCallUpdate(call.id, 'transcript');
     }
 
-    await processPostCall(this.prisma, call.id, this.config);
-    this.callEvents.publishCallUpdate(call.id, 'intent');
+    if (!call.endedAt || !call.intent) {
+      await processPostCall(this.prisma, call.id, this.config);
+      this.callEvents.publishCallUpdate(call.id, 'intent');
+    }
   }
 }
