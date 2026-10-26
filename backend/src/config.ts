@@ -7,6 +7,22 @@ loadEnv({
   path: resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '.env'),
 });
 
+const environmentBoolean = z.preprocess((value) => {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'true') {
+    return true;
+  }
+  if (normalized === 'false') {
+    return false;
+  }
+
+  return value;
+}, z.boolean());
+
 const environmentSchema = z
   .object({
     DATABASE_URL: z.string().url(),
@@ -22,7 +38,7 @@ const environmentSchema = z
     DASHBOARD_TOKEN: z.string().min(1),
     DASHBOARD_ORIGIN: z.string().url().default('http://127.0.0.1:5173'),
     VAPI_WEBHOOK_TOKEN: z.string().min(1),
-    GOOGLE_CALENDAR_ENABLED: z.coerce.boolean().default(false),
+    GOOGLE_CALENDAR_ENABLED: environmentBoolean.default(false),
     GOOGLE_CALENDAR_ID: z.string().min(1).optional(),
     GOOGLE_CALENDAR_TIME_ZONE: z.string().min(1).default('UTC'),
     GOOGLE_OAUTH_CLIENT_ID: z.string().min(1).optional(),
@@ -35,7 +51,7 @@ const environmentSchema = z
       .max(30000)
       .default(5000),
     GOOGLE_CALENDAR_RETRIES: z.coerce.number().int().min(0).max(5).default(2),
-    HUBSPOT_ENABLED: z.coerce.boolean().default(false),
+    HUBSPOT_ENABLED: environmentBoolean.default(false),
     HUBSPOT_ACCESS_TOKEN: z.string().min(1).optional(),
     HUBSPOT_TIMEOUT_MS: z.coerce
       .number()
@@ -44,7 +60,7 @@ const environmentSchema = z
       .max(30000)
       .default(5000),
     HUBSPOT_RETRIES: z.coerce.number().int().min(0).max(5).default(2),
-    RESEND_ENABLED: z.coerce.boolean().default(false),
+    RESEND_ENABLED: environmentBoolean.default(false),
     RESEND_API_KEY: z.string().min(1).optional(),
     RESEND_FROM: z.string().email().optional(),
     RESEND_TIMEOUT_MS: z.coerce
@@ -77,6 +93,13 @@ const environmentSchema = z
         code: z.ZodIssueCode.custom,
         message: 'Resend requires an API key and sender email',
         path: ['RESEND_ENABLED'],
+      });
+    }
+    if (value.HUBSPOT_ENABLED && !value.HUBSPOT_ACCESS_TOKEN) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'HubSpot requires a private-app access token',
+        path: ['HUBSPOT_ENABLED'],
       });
     }
   });
@@ -116,8 +139,10 @@ export type AppConfig = Readonly<{
   };
 }>;
 
-export function loadConfig(): AppConfig {
-  const result = environmentSchema.safeParse(process.env);
+export function loadConfig(
+  environment: NodeJS.ProcessEnv = process.env,
+): AppConfig {
+  const result = environmentSchema.safeParse(environment);
 
   if (!result.success) {
     const details = result.error.issues

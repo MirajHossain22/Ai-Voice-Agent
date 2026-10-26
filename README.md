@@ -31,6 +31,13 @@ Copy `.env.example` to `.env` at the repository root. Set
 untracked. `DASHBOARD_ORIGIN` should match the browser origin used to access
 the dashboard.
 
+Create a Vapi custom Bearer credential whose token exactly matches
+`VAPI_WEBHOOK_TOKEN`, then attach that credential to the assistant's server
+configuration. Replace `REPLACE_WITH_VAPI_CREDENTIAL_ID` in
+`vapi-assistant-config.json` only in the copy submitted to Vapi. Never commit
+the credential token or a populated credential ID. If a token has ever been
+committed, revoke and rotate it before accepting webhook traffic.
+
 Google Calendar booking is opt-in. Set `GOOGLE_CALENDAR_ENABLED=true`,
 `GOOGLE_CALENDAR_ID`, `GOOGLE_CALENDAR_TIME_ZONE`, and the Google OAuth client
 and refresh-token variables shown in `.env.example`. The OAuth grant must
